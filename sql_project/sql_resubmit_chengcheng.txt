@@ -1,0 +1,145 @@
+Q1:
+
+SELECT name
+FROM Facilities
+WHERE membercost > 0.0
+
+Q2:
+
+SELECT COUNT(*)
+FROM Facilities
+WHERE membercost = 0.0
+
+Q3:
+
+SELECT facid, name, membercost, monthlymaintenance
+FROM Facilities
+WHERE membercost > 0.0
+AND membercost < 0.2 * monthlymaintenance
+
+Q4:
+
+SELECT *
+FROM Facilities
+WHERE facid IN (1, 5)
+
+Q5:
+
+SELECT name, monthlymaintenance, 
+     CASE WHEN monthlymaintenance > 100 THEN 'expensive'
+	 ELSE 'cheap' 
+     END AS cheap_or_expensive
+FROM Facilities
+
+Q6:
+
+SELECT firstname, surname
+FROM  Members
+WHERE joindate = (SELECT MAX(joindate) FROM Members)
+
+Q7:
+
+SELECT DISTINCT CONCAT_WS(' ', firstname, surname) AS name, f.name AS facility_name
+FROM Members as m
+INNER JOIN Bookings as b
+USING(memid)
+INNER JOIN Facilities as f
+ON b.facid = f.facid
+WHERE f.facid IN (0, 1)
+ORDER BY name
+
+Q8:
+
+SELECT f.name AS facility_name, CONCAT_WS(' ', firstname, surname) AS name, 
+CASE WHEN m.memid = 0 THEN f.guestcost * b.slots
+	  ELSE f.membercost * b.slots
+	  END AS cost
+FROM Bookings as b
+INNER JOIN Facilities as f
+USING(facid)
+INNER JOIN Members as m
+ON b.memid = m.memid
+WHERE b.starttime LIKE '2012-09-14%'
+HAVING cost > 30
+ORDER BY cost DESC
+
+Q9:
+
+SELECT dt.*
+FROM 
+     (SELECT f.name AS facility_name, CONCAT_WS(' ', firstname, surname) AS name, 
+      CASE WHEN m.memid = 0 THEN f.guestcost * b.slots
+	  ELSE f.membercost * b.slots
+	  END AS cost
+      FROM Bookings as b
+      INNER JOIN Facilities as f
+      USING(facid)
+      INNER JOIN Members as m
+      ON b.memid = m.memid
+      WHERE b.starttime LIKE '2012-09-14%') dt
+
+WHERE cost > 30
+ORDER BY cost DESC
+
+Q10:
+
+import sqlite3
+import pandas as pd
+
+database = 'sqlite_db_pythonsqlite.db'
+con = sqlite3.connect(database)
+
+rs1 = con.execute('SELECT f.name as facility_name, \
+SUM(CASE WHEN b.memid = 0 THEN f.guestcost * b.slots \
+ELSE f.membercost * b.slots \
+END) AS revenue \
+FROM Bookings as b \
+INNER JOIN Facilities as f \
+USING(facid) \
+GROUP BY facility_name \
+HAVING revenue < 1000 \
+ORDER BY facility_name, revenue')
+df1 = pd.DataFrame(rs1.fetchall())
+df1.columns = ['facility_name', 'revenue']
+print(df1)
+
+Q11:
+
+rs2 = con.execute('SELECT m1.surname, m1.firstname, m2.surname AS recommendedby_surname, m2.firstname AS recommendedby_firstname FROM Members as m1 \
+INNER JOIN Members as m2 \
+ON m1.recommendedby = m2.memid \
+WHERE m1.recommendedby > 0 \
+ORDER BY m1.surname, m1.firstname')
+df2 = pd.DataFrame(rs2.fetchall())
+df2.columns = ['surname', 'firstname', 'recommendedby_surname', 'recommendedby_firstname']
+print(df2)
+
+Q12:
+
+rs3 = con.execute('SELECT f.name as facility_name, surname, firstname, SUM(slots) AS total_slots \
+FROM Bookings as b \
+INNER JOIN Facilities as f \
+USING(facid) \
+INNER JOIN Members as m \
+ON b.memid = m.memid \
+WHERE m.memid > 0 \
+GROUP BY facility_name, surname, firstname \
+ORDER BY facility_name, surname, firstname')
+df3 = pd.DataFrame(rs3.fetchall())
+df3.columns = ['facility_name', 'surname', 'firstname', 'total_slots']
+print(df3)
+
+Q13:
+
+rs4 = con.execute('SELECT f.name as facility_name, \
+CASE WHEN starttime LIKE "2012-07-%" THEN 7 \
+WHEN starttime LIKE "2012-08-%" THEN 8 \
+ELSE 9 END AS month, SUM(slots) AS total_slots \
+FROM Bookings as b \
+INNER JOIN Facilities as f \
+USING(facid) WHERE memid > 0 \
+GROUP BY facility_name, month \
+ORDER BY facility_name, month')
+df4 = pd.DataFrame(rs4.fetchall())
+df4.columns = ['facility_name', 'month', 'total_slots']
+print(df4)
